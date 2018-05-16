@@ -11,6 +11,7 @@ class PreviewWindow(pyglet.window.Window):
 		self.propagator = propagator
 		self.grid = self.model.build_grid(queue)
 		self.grid_array = self.grid.get()
+		self.done = False
 
 		tile = pyglet.resource.image('tile.png')
 		tile.anchor_x = 32
@@ -39,10 +40,15 @@ class PreviewWindow(pyglet.window.Window):
 			tiles = self.model.get_tiles(bits)
 			self.draw_tiles(pos, tiles)
 
+	def step(self):
+		status = self.observer.observe(self.grid)
+		if status[0] == 'continue':
+			index, collapsed = status[1:]
+			self.propagator.propagate(self.grid, index, collapsed)
+		else:
+			self.done = True
+		self.grid.get(ary=self.grid_array)
+
 	def on_key_press(self, symbol, modifiers):
 		if symbol == key.SPACE:
-			status = self.observer.observe(self.grid)
-			if status[0] == 'continue':
-				index, collapsed = status[1:]
-				self.propagator.propagate(self.grid, index, collapsed)
-			self.grid.get(ary=self.grid_array)
+			self.step()

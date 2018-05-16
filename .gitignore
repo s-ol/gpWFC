@@ -1,2 +1,3 @@
 __pycache__
-shots/*png
+shots/*.png
+shots/*.mp4

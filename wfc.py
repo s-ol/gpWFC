@@ -53,7 +53,8 @@ for adj in np.stack(np.meshgrid([0, 1], [0, 1], [0, 1], [0, 1]), -1).reshape(-1,
 
 
 if __name__ == '__main__':
-	from pyglet import app
+	import sys
+	from pyglet import app, image, clock
 
 	platform = None
 	platforms =  cl.get_platforms()
@@ -73,4 +74,22 @@ if __name__ == '__main__':
 	propagator = propagate.WFCPropagator(ctx, model)
 	preview = preview.PreviewWindow(model, queue, observer, propagator)
 
-	app.run()
+	iteration = 0
+	if 'render' in sys.argv[1:]:
+		def screenshot():
+			global iteration
+			image.get_buffer_manager().get_color_buffer().save('shots/{:04}.png'.format(iteration))
+			iteration += 1
+
+		while not preview.done:
+			clock.tick()
+
+			preview.switch_to()
+			preview.dispatch_events()
+			preview.dispatch_event('on_draw')
+			preview.flip()
+			screenshot()
+			preview.step()
+		screenshot()
+	else:
+		app.run()

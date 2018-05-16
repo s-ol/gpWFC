@@ -102,7 +102,7 @@ class WFCPropagator(object):
 		old = grid[i]
 		new = old & allowmap
 		diff = old ^ new
-		print('tile {}: {} & {} = {}, delta: {}'.format(i, old, allowmap, new, diff))
+		# print('tile {}: {} & {} = {}, delta: {}'.format(i, old, allowmap, new, diff))
 		grid[i] = new
 		if not diff or not new:
 			return
@@ -110,9 +110,9 @@ class WFCPropagator(object):
 		allowmaps = np.zeros((4,), dtype=int)
 		for tile in self.model.tiles:
 			if new & tile.flag:
-				print('delta bit {}, propagate allows {}'.format(tile.index, self.allows[tile.index]))
+				# print('delta bit {}, propagate allows {}'.format(tile.index, self.allows[tile.index]))
 				allowmaps |= self.allows[tile.index]
-		print('neighbour allows: {}'.format(allowmaps))
+		# print('neighbour allows: {}'.format(allowmaps))
 
 		for neighbour in range(4):
 			self.reduce_to_allowed(
@@ -136,7 +136,7 @@ class WFCPropagator(object):
 		'''.format(len(self.model.tiles))
 
 	def propagate(self, grid, index, collapsed):
-		print('prop', index, collapsed, grid[index])
+		# print('prop', index, collapsed, grid[index])
 		self.reduce_to_allowed(index, collapsed, grid)
 
 		return
