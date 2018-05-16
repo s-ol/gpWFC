@@ -4,41 +4,45 @@ import numpy as np
 from pyglet.window import key
 
 class PreviewWindow(pyglet.window.Window):
-	def __init__(self, model, observer, propagator):
+	def __init__(self, model, queue, observer, propagator):
 		super().__init__(width=512, height=512)
 		self.model = model
 		self.observer = observer
 		self.propagator = propagator
-		self.grid = self.model.build_grid()
-		self.grid_array = grid.get()
-		self.scale = 24
-		self.label = pyglet.text.Label(
-			font_name='DejaVu Sans Mono',
-			font_size=self.scale,
-			multiline=True,
-			anchor_y='top',
-			width=512,
-			y=512,
-		)
+		self.grid = self.model.build_grid(queue)
+		self.grid_array = self.grid.get()
 
-	def get_char(self, bits):
-		tiles = self.model.get_tiles(bits)
-		if len(tiles) == 1:
-			return tiles[0].char
-		elif len(tiles) < len(self.model.tiles):
-			return str(len(tiles))
-		else:
-			return '?'
+		tile = pyglet.resource.image('tile.png')
+		tile.anchor_x = 32
+		tile.anchor_y = 32
+		self.sprite = pyglet.sprite.Sprite(img=tile, x=0, y=0)
+
+	def draw_tiles(self, pos, tiles):
+		if len(tiles) == 0:
+			return
+
+		x, y  = pos
+		self.sprite.x = x * 64 + 32
+		self.sprite.y = 512 - y * 64 - 32
+
+		self.sprite.opacity = 255 / len(tiles)
+
+		for tile in tiles:
+			for direction, adj in enumerate(tile.adj):
+				if adj:
+					self.sprite.rotation = direction * 90
+					self.sprite.draw()
 
 	def on_draw(self):
 		self.clear()
-
-		self.label.text = '\n'.join(''.join(self.get_char(tile) for tile in row) for row in self.grid_array)
-		self.label.draw()
+		for pos, bits in np.ndenumerate(self.grid_array):
+			tiles = self.model.get_tiles(bits)
+			self.draw_tiles(pos, tiles)
 
 	def on_key_press(self, symbol, modifiers):
 		if symbol == key.SPACE:
-			status, index, collapsed = self.observer.observe(self.grid)
-			if status == 'continue':
-				self.propagator.propagate(self, self.grid, index, collapsed)
+			status = self.observer.observe(self.grid)
+			if status[0] == 'continue':
+				index, collapsed = status[1:]
+				self.propagator.propagate(self.grid, index, collapsed)
 			self.grid.get(ary=self.grid_array)

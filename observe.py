@@ -16,6 +16,8 @@ class WFCObserver(object):
 		self.rnd = pyopencl.clrandom.PhiloxGenerator(ctx)
 		self.bias = cl.array.to_device(queue, np.zeros(self.model.world_shape, dtype=cl.cltypes.float))
 
+		self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float))
+
 		min_collector = np.dtype([
 			('entropy', cl.cltypes.float),
 			('index', cl.cltypes.uint),
@@ -71,7 +73,7 @@ class WFCObserver(object):
 		)
 
 	def collapse(self, bits):
-		p = self.model.weights.get()
+		p = self.weights.get()
 		for i in range(len(p)):
 			p[i] *= not not bits & (1 << i)
 		p = p / np.sum(p)
@@ -83,7 +85,7 @@ class WFCObserver(object):
 		# random tie-breaking bias for each tile
 		self.rnd.fill_uniform(self.bias)
 
-		tile = self.find_lowest_entropy(grid, self.bias, len(self.model.weights), self.model.weights).get()
+		tile = self.find_lowest_entropy(grid, self.bias, len(self.weights), self.weights).get()
 		entropy, index = tile['entropy'], i2xy(tile['index'])
 
 		if entropy < 0:

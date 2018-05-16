@@ -6,25 +6,9 @@ import observe
 import preview
 import propagate
 
-platform = None
-platforms =  cl.get_platforms()
-if len(platforms) == 0:
-	platform = platforms[0]
-for pl in platforms:
-	if 'NVIDIA' in pl.name:
-		platform = pl
-
-device = platform.get_devices()[0]
-print(device)
-ctx = cl.Context([ device ])
-queue = cl.CommandQueue(ctx)
-
-print('using {} CL platform'.format(platform.name))
-
 class Tile(object):
 	nextIndex = 0
-	def __init__(self, char, adj, weight, index):
-		self.char = char
+	def __init__(self, adj, weight, index):
 		self.adj = adj
 		self.weight = weight
 		self.index = index
@@ -41,13 +25,10 @@ class Model(object):
 		self.world_shape = world_shape
 		self.weights = None
 
-	def add(self, char, adj, weight=1):
-		self.tiles.append(Tile(char, adj, weight, len(self.tiles)))
+	def add(self, adj, weight=1):
+		self.tiles.append(Tile(adj, weight, len(self.tiles)))
 
-	def finish(self):
-		self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.tiles), dtype=cl.cltypes.float))
-
-	def build_grid(self):
+	def build_grid(self, queue):
 		all_tiles = sum(tile.flag for tile in self.tiles)
 		print('filling grid with {}'.format(all_tiles))
 		return cl.array.to_device(queue, np.full(self.world_shape, all_tiles, dtype=cl.cltypes.uint))
@@ -57,19 +38,39 @@ class Model(object):
 
 model = Model((8, 8,))
 # left, up, right, down
-model.add('┃', [0, 1, 0, 1])
-model.add('━', [1, 0, 1, 0])
-model.add('┓', [1, 0, 0, 1])
-model.add('┗', [0, 1, 1, 0])
-model.add('┳', [1, 0, 1, 1])
-model.add('┻', [1, 1, 1, 0])
-model.add('╹', [0, 1, 0, 0])
-model.add('╻', [0, 0, 0, 1])
-model.finish()
+# model.add('┃', [0, 1, 0, 1])
+# model.add('━', [1, 0, 1, 0])
+# model.add('┓', [1, 0, 0, 1])
+# model.add('┗', [0, 1, 1, 0])
+# model.add('┳', [1, 0, 1, 1])
+# model.add('┻', [1, 1, 1, 0])
+# model.add('╹', [0, 1, 0, 0])
+# model.add('╻', [0, 0, 0, 1])
 
-observer = observe.WFCObserver(ctx, queue, model)
-propagator = propagate.WFCPropagator(ctx, queue, model)
-preview = preview.PreviewWindow(model, observer, propagator)
+for adj in np.stack(np.meshgrid([0, 1], [0, 1], [0, 1], [0, 1]), -1).reshape(-1, 4):
+	if np.sum(adj) > 1:
+		model.add(adj)
 
-import pyglet
-pyglet.app.run()
+
+if __name__ == '__main__':
+	from pyglet import app
+
+	platform = None
+	platforms =  cl.get_platforms()
+	if len(platforms) == 0:
+		platform = platforms[0]
+	for pl in platforms:
+		if 'NVIDIA' in pl.name:
+			platform = pl
+
+	device = platform.get_devices()[0]
+	ctx = cl.Context([ device ])
+	queue = cl.CommandQueue(ctx)
+
+	print('using {} on {}'.format(platform.name, device.name))
+
+	observer = observe.WFCObserver(ctx, queue, model)
+	propagator = propagate.WFCPropagator(ctx, model)
+	preview = preview.PreviewWindow(model, queue, observer, propagator)
+
+	app.run()
