@@ -4,6 +4,7 @@ import numpy as np
 
 import observe
 import preview
+import propagate
 
 platform = None
 platforms =  cl.get_platforms()
@@ -29,6 +30,11 @@ class Tile(object):
 		self.index = index
 		self.flag = 1 << self.index
 
+	def compatible(self, other, direction):
+		# @TODO 3d
+		return self.adj[direction] == other.adj[(direction+2) % 4]
+
+
 class Model(object):
 	def __init__(self, world_shape):
 		self.tiles = []
@@ -50,28 +56,20 @@ class Model(object):
 		return [tile for tile in self.tiles if tile.flag & bits]
 
 model = Model((8, 8,))
-model.add('┃', [1, 1, 0, 0])
-model.add('━', [0, 0, 1, 1])
-model.add('┓', [0, 1, 1, 0])
-model.add('┗', [1, 0, 0, 1])
-model.add('┳', [0, 1, 1, 1])
-model.add('┻', [1, 0, 1, 1])
-model.add('╹', [1, 0, 0, 0])
-model.add('╻', [0, 1, 0, 0])
-#model.add('I', [1, 1, 0, 0])
-#model.add('-', [0, 0, 1, 1])
-#model.add('l', [0, 1, 1, 0])
-#model.add('l', [1, 0, 0, 1])
-#model.add('t', [0, 1, 1, 1])
-#model.add('t', [1, 0, 1, 1])
-#model.add('i', [1, 0, 0, 0])
-#model.add(',', [0, 1, 0, 0])
+# left, up, right, down
+model.add('┃', [0, 1, 0, 1])
+model.add('━', [1, 0, 1, 0])
+model.add('┓', [1, 0, 0, 1])
+model.add('┗', [0, 1, 1, 0])
+model.add('┳', [1, 0, 1, 1])
+model.add('┻', [1, 1, 1, 0])
+model.add('╹', [0, 1, 0, 0])
+model.add('╻', [0, 0, 0, 1])
 model.finish()
 
-grid = model.build_grid()
-
 observer = observe.WFCObserver(ctx, queue, model)
-preview = preview.PreviewWindow(model, grid, observer)
+propagator = propagate.WFCPropagator(ctx, queue, model)
+preview = preview.PreviewWindow(model, observer, propagator)
 
 import pyglet
 pyglet.app.run()

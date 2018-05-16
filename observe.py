@@ -8,7 +8,7 @@ import numpy.random
 
 def i2xy(i):
 	x = i // 8
-	return (x, i % 8,)
+	return (i // 8, i % 8)
 
 class WFCObserver(object):
 	def __init__(self, ctx, queue, model):
@@ -24,7 +24,7 @@ class WFCObserver(object):
 		min_collector = cl.tools.get_or_register_dtype('min_collector', min_collector)
 
 		self.find_lowest_entropy = cl.reduction.ReductionKernel(ctx,
-			arguments='__global uint* grid, __global float* bias, const unsigned int states, __global float* weights',
+			arguments='__global uint* grid, __global float* bias, const uint states, __global float* weights',
 			neutral='neutral()',
 			dtype_out=min_collector,
 			map_expr='get_entropy(i, grid[i], bias[i], states, weights)',
@@ -88,11 +88,10 @@ class WFCObserver(object):
 
 		if entropy < 0:
 			print('solved!'.format(index))
-			return 'done'
+			return ('done',)
 		elif entropy == 0:
 			print('tile {} overconstrained!'.format(index))
-			return 'overconstrained'
+			return ('error',)
 
 		print('selected tile {} with entropy {}'.format(index, entropy))
-		grid[index] = self.collapse(grid[index])
-		return 'continue'
+		return ('continue', index, self.collapse(grid[index]))
