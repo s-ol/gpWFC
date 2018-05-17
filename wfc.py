@@ -7,7 +7,7 @@ import observe
 import propagate
 import preview
 
-model = model.Model((8, 8,))
+model = model.Model2d((8, 8,))
 
 adjs = [0, 1, 2]
 for adj in np.stack(np.meshgrid(adjs, adjs, adjs, adjs), -1).reshape(-1, 4):

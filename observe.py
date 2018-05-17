@@ -6,10 +6,6 @@ import pyopencl.reduction
 import numpy as np
 import numpy.random
 
-def i2xy(i):
-	x = i // 8
-	return (i // 8, i % 8)
-
 class Observer(object):
 	def __init__(self, ctx, queue, model):
 		self.model = model
@@ -91,14 +87,15 @@ class Observer(object):
 		self.rnd.fill_uniform(self.bias)
 
 		tile = self.find_lowest_entropy(grid, self.bias, self.weights).get()
-		entropy, index = tile['entropy'], i2xy(tile['index'])
+		entropy, index = tile['entropy'].item(), tile['index'].item()
 
+		t_index = np.unravel_index(index, self.model.world_shape)
 		if entropy < 0:
-			print('solved!'.format(index))
+			print('solved!')
 			return ('done',)
 		elif entropy == 0:
-			print('tile {} overconstrained!'.format(index))
+			print('tile {} overconstrained!'.format(t_index))
 			return ('error',)
 
-		print('selected tile {} with entropy {}'.format(index, entropy))
-		return ('continue', index, self.collapse(grid[index]))
+		print('selected tile {} with entropy {}'.format(t_index, entropy))
+		return ('continue', index, self.collapse(grid[t_index]))

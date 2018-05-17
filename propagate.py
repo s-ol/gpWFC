@@ -9,9 +9,6 @@ def xy2i(x, y):
 #	return y * 8 + x
 	return x * 8 + y
 
-def xyt2i(p):
-	return xy2i(p[0], p[1])
-
 def i2xy(i):
 	x = i // 8
 #	return (i % 8), i // 8
@@ -21,27 +18,21 @@ class BasePropagator(object):
 	def __init__(self, model):
 		self.model = model
 
-		self.neighbours = np.fromfunction(
-			np.vectorize(self.get_neighbours),
-			self.model.world_shape + (self.model.adjacent,),
-			dtype=int
-		).astype(cl.cltypes.uint)
+		self.neighbours = np.zeros(self.model.world_shape + (self.model.adjacent,), dtype=cl.cltypes.uint)
+		for pos, _ in np.ndenumerate(self.neighbours[...,0]):
+			self.neighbours[pos] = [np.ravel_multi_index(neighbour, self.model.world_shape) for neighbour in self.model.get_neighbours(pos)]
+
+		# np.fromfunction(
+		# 	np.vectorize(lambda pos: [ self.model.get_neighbours(pos) ], ignore={3}),
+		# 	self.model.world_shape + (self.model.adjacent,),
+		# 	dtype=int
+		# ).astype(cl.cltypes.uint)
 
 		self.allows = np.fromfunction(
 			np.vectorize(self.get_allows),
 			(len(self.model.tiles), self.model.adjacent),
 			dtype=int
 		).astype(cl.cltypes.ulong)
-
-	def get_neighbours(self, x, y, direction): # @TODO 3d
-		if direction == 0:
-			return xy2i(x - 1, y)
-		elif direction == 1:
-			return xy2i(x, y - 1)
-		elif direction == 2:
-			return xy2i(x + 1, y)
-		else:
-			return xy2i(x, y + 1)
 
 	def get_allows(self, i, direction):
 		ret = np.uint64(0)
@@ -52,14 +43,16 @@ class BasePropagator(object):
 		return ret
 
 	def get_config(self):
-		adjacent_bits = (self.model.adjacent - 1).bit_length()
+		adj = self.model.adjacent
+		adjacent_bits = (adj - 1).bit_length()
 		adjacent_pow = 1 << adjacent_bits
 
 		config = {
+			'adj': adj,
 			'adj_uint': 'uint' + str(adjacent_pow),
 			'adj_ulong': 'ulong' + str(adjacent_pow),
 			'states': len(self.model.tiles),
-			'forNeighbour': lambda tpl, join='\n': join.join([tpl.format(i=i) for i in range(self.model.adjacent)]),
+			'forNeighbour': lambda tpl, join='\n': join.join([tpl.format(i=i, o=(i + adj//2)%adj) for i in range(adj)]),
 		}
 
 		config['preamble'] = '''
@@ -67,7 +60,7 @@ class BasePropagator(object):
 			#define ADJUINT {adj_uint}
 			#define ADJULONG {adj_ulong}
 			#define STATES {states}
-		'''.format(adj=self.model.adjacent, **config)
+		'''.format(**config)
 
 		return config
 
@@ -87,14 +80,15 @@ class CPUPropagator(BasePropagator):
 				allowmaps |= self.allows[tile.index]
 		# print('neighbour allows: {}'.format(allowmaps))
 
-		for neighbour in range(4):
+		for n, neighbour in enumerate(self.model.get_neighbours(i)):
 			self.reduce_to_allowed(
-				i2xy(self.neighbours[i + (neighbour,)]), allowmaps[neighbour],
+				neighbour,
+				allowmaps[n],
 				grid
 			)
 
 	def propagate(self, grid, index, collapsed):
-		self.reduce_to_allowed(index, np.uint64(collapsed), grid)
+		self.reduce_to_allowed(np.unravel_index(index, self.model.world_shape), np.uint64(collapsed), grid)
 
 class CL2Propagator(BasePropagator):
 	def __init__(self, model, ctx):
@@ -145,7 +139,7 @@ class CL2Propagator(BasePropagator):
 		with cl.CommandQueue(self.ctx) as queue:
 			self.program.reduce_to_allowed(
 				queue, (1,), None,
-				xyt2i(index), collapsed,
+				index, collapsed,
 				grid, self.allows_buf, self.neighbours_buf
 			)
 
@@ -182,7 +176,7 @@ class CL1Propagator(BasePropagator):
 					ulong flag = 1 << tile;
 					ADJULONG tile_allows = allows[tile];
 					''' + fN('''
-					if (flag & grid_{i}) mask_{i} |= tile_allows.s{i};
+					if (flag & grid_{i}) mask_{i} |= tile_allows.s{o};
 					''') + '''
 				}
 
@@ -194,7 +188,7 @@ class CL1Propagator(BasePropagator):
 		)
 
 	def propagate(self, grid, index, collapsed):
-		grid[index] = collapsed
+		grid[np.unravel_index(index, self.model.world_shape)] = collapsed
 		turn, changes = 0, 1
 		while changes > 0:
 			changes = self.update_grid(grid, self.allows_buf, self.neighbours_buf).get()

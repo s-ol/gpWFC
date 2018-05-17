@@ -18,7 +18,6 @@ class Model(object):
 	def __init__(self, world_shape):
 		self.tiles = []
 		self.world_shape = world_shape
-		self.adjacent = 4
 
 	def add(self, adj, weight=1):
 		self.tiles.append(Tile(adj, weight, len(self.tiles)))
@@ -30,3 +29,35 @@ class Model(object):
 
 	def get_allowed_tiles(self, bits):
 		return [tile for tile in self.tiles if tile.flag & bits]
+
+class Model2d(Model):
+	adjacent = 4
+
+	def __init__(self, world_shape):
+		assert len(world_shape) == 2
+		super().__init__(world_shape)
+
+	def get_neighbours(self, pos):
+		w, h = self.world_shape
+		x, y = pos
+		yield (x-1)%w, y
+		yield x, (y-1)%h
+		yield (x+1)%w, y
+		yield x, (y+1)%h
+
+class Model3d(Model):
+	adjacent = 6
+
+	def __init__(self, world_shape):
+		assert len(world_shape) == 3
+		super().__init__(world_shape)
+
+	def get_neighbours(self, pos):
+		w, h, d = self.world_shape
+		x, y, z = pos
+		yield (x-1)%w, y, z
+		yield x, (y-1)%h, z
+		yield x, y, (z-1)%d
+		yield (x+1)%w, y, z
+		yield x, (y+1)%h, z
+		yield x, y, (z+1)%d
