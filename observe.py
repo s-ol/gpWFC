@@ -10,13 +10,14 @@ def i2xy(i):
 	x = i // 8
 	return (i // 8, i % 8)
 
-class WFCObserver(object):
+class Observer(object):
 	def __init__(self, ctx, queue, model):
 		self.model = model
 		self.rnd = pyopencl.clrandom.PhiloxGenerator(ctx)
 		self.bias = cl.array.to_device(queue, np.zeros(self.model.world_shape, dtype=cl.cltypes.float))
 
-		self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float))
+		alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+		self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float), alloc)
 
 		min_collector = np.dtype([
 			('entropy', cl.cltypes.float),
@@ -25,13 +26,17 @@ class WFCObserver(object):
 		min_collector, min_collector_def = cl.tools.match_dtype_to_c_struct(ctx.devices[0], 'min_collector', min_collector)
 		min_collector = cl.tools.get_or_register_dtype('min_collector', min_collector)
 
+		preamble = '''
+			#define STATES {}
+		'''.format(len(self.model.tiles))
+
 		self.find_lowest_entropy = cl.reduction.ReductionKernel(ctx,
-			arguments='__global uint* grid, __global float* bias, const uint states, __global float* weights',
+			arguments='__global ulong* grid, __global float* bias, __global float* weights',
 			neutral='neutral()',
 			dtype_out=min_collector,
-			map_expr='get_entropy(i, grid[i], bias[i], states, weights)',
+			map_expr='get_entropy(i, grid[i], bias[i], weights)',
 			reduce_expr='reduce(a, b)',
-			preamble=min_collector_def + r'''//CL//
+			preamble=min_collector_def + preamble + r'''//CL//
 
 			/* start with an imaginary solved tile */
 			min_collector neutral() {
@@ -44,14 +49,14 @@ class WFCObserver(object):
 			/* get entropy of tile (> 0)
 			 * -1: solved
 			 *  0: overconstrained */
-			min_collector get_entropy(int i, uint bitfield, float bias, const unsigned int states, __global float* weights) {
+			min_collector get_entropy(uint i, ulong bitfield, float bias, __global float* weights) {
 				min_collector res;
 				res.entropy = 0.0f;
 				res.index = i;
 
-				unsigned int remaining_states = 0;
-				for (unsigned int state = 0; state < states; state++) {
-					if (bitfield & (1 << state)) {
+				uint remaining_states = 0;
+				for (uint state = 0; state < STATES; state++) {
+					if (bitfield & ((ulong)1 << state)) {
 						remaining_states++;
 						res.entropy += weights[state];
 					}
@@ -85,7 +90,7 @@ class WFCObserver(object):
 		# random tie-breaking bias for each tile
 		self.rnd.fill_uniform(self.bias)
 
-		tile = self.find_lowest_entropy(grid, self.bias, len(self.weights), self.weights).get()
+		tile = self.find_lowest_entropy(grid, self.bias, self.weights).get()
 		entropy, index = tile['entropy'], i2xy(tile['index'])
 
 		if entropy < 0:

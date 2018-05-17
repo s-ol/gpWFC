@@ -12,7 +12,7 @@ class Tile(object):
 		self.adj = adj
 		self.weight = weight
 		self.index = index
-		self.flag = 1 << self.index
+		self.flag = np.uint64(1 << self.index)
 
 	def compatible(self, other, direction):
 		# @TODO 3d
@@ -31,26 +31,26 @@ class Model(object):
 	def build_grid(self, queue):
 		all_tiles = sum(tile.flag for tile in self.tiles)
 		print('filling grid with {}'.format(all_tiles))
-		return cl.array.to_device(queue, np.full(self.world_shape, all_tiles, dtype=cl.cltypes.uint))
+		return cl.array.to_device(queue, np.full(self.world_shape, all_tiles, dtype=cl.cltypes.ulong))
 
 	def get_tiles(self, bits):
 		return [tile for tile in self.tiles if tile.flag & bits]
 
 model = Model((8, 8,))
-# left, up, right, down
-# model.add('┃', [0, 1, 0, 1])
-# model.add('━', [1, 0, 1, 0])
-# model.add('┓', [1, 0, 0, 1])
-# model.add('┗', [0, 1, 1, 0])
-# model.add('┳', [1, 0, 1, 1])
-# model.add('┻', [1, 1, 1, 0])
-# model.add('╹', [0, 1, 0, 0])
-# model.add('╻', [0, 0, 0, 1])
 
-for adj in np.stack(np.meshgrid([0, 1], [0, 1], [0, 1], [0, 1]), -1).reshape(-1, 4):
-	if np.sum(adj) > 1:
-		model.add(adj)
+adjs = [0, 1, 2]
+for adj in np.stack(np.meshgrid(adjs, adjs, adjs, adjs), -1).reshape(-1, 4):
+	bins = np.bincount(adj, minlength=3)
+	if bins[0] % 2 == 1:
+		continue
+	if bins[1] % 2 == 1:
+		continue
+	# if bins[2] % 2 == 1:
+	# 	continue
 
+	model.add(adj)
+
+print('{} tiles:'.format(len(model.tiles)))
 
 if __name__ == '__main__':
 	import sys
@@ -70,8 +70,8 @@ if __name__ == '__main__':
 
 	print('using {} on {}'.format(platform.name, device.name))
 
-	observer = observe.WFCObserver(ctx, queue, model)
-	propagator = propagate.WFCPropagator(ctx, model)
+	observer = observe.Observer(ctx, queue, model)
+	propagator = propagate.CL1Propagator(ctx, queue, model)
 	preview = preview.PreviewWindow(model, queue, observer, propagator)
 
 	iteration = 0
