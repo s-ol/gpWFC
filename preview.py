@@ -28,7 +28,7 @@ class PreviewWindow(pyglet.window.Window):
 		self.sprite.x = x * 64 + 32
 		self.sprite.y = 512 - y * 64 - 32
 
-		tiles = self.model.get_tiles(bits)
+		tiles = self.model.get_allowed_tiles(bits)
 		self.sprite.opacity = 255 / len(tiles)
 
 		for tile in tiles:

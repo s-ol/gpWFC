@@ -2,41 +2,12 @@ import pyopencl as cl
 import pyopencl.array
 import numpy as np
 
+import model
 import observe
-import preview
 import propagate
+import preview
 
-class Tile(object):
-	nextIndex = 0
-	def __init__(self, adj, weight, index):
-		self.adj = adj
-		self.weight = weight
-		self.index = index
-		self.flag = np.uint64(1 << self.index)
-
-	def compatible(self, other, direction):
-		# @TODO 3d
-		return self.adj[direction] == other.adj[(direction+2) % 4]
-
-
-class Model(object):
-	def __init__(self, world_shape):
-		self.tiles = []
-		self.world_shape = world_shape
-		self.weights = None
-
-	def add(self, adj, weight=1):
-		self.tiles.append(Tile(adj, weight, len(self.tiles)))
-
-	def build_grid(self, queue):
-		all_tiles = sum(tile.flag for tile in self.tiles)
-		print('filling grid with {}'.format(all_tiles))
-		return cl.array.to_device(queue, np.full(self.world_shape, all_tiles, dtype=cl.cltypes.ulong))
-
-	def get_tiles(self, bits):
-		return [tile for tile in self.tiles if tile.flag & bits]
-
-model = Model((8, 8,))
+model = model.Model((8, 8,))
 
 adjs = [0, 1, 2]
 for adj in np.stack(np.meshgrid(adjs, adjs, adjs, adjs), -1).reshape(-1, 4):
@@ -54,7 +25,6 @@ print('{} tiles:'.format(len(model.tiles)))
 
 if __name__ == '__main__':
 	import sys
-	from pyglet import app, image, clock
 
 	platform = None
 	platforms =  cl.get_platforms()
@@ -71,25 +41,44 @@ if __name__ == '__main__':
 	print('using {} on {}'.format(platform.name, device.name))
 
 	observer = observe.Observer(ctx, queue, model)
-	propagator = propagate.CL1Propagator(ctx, queue, model)
-	preview = preview.PreviewWindow(model, queue, observer, propagator)
 
-	iteration = 0
-	if 'render' in sys.argv[1:]:
-		def screenshot():
-			global iteration
-			image.get_buffer_manager().get_color_buffer().save('shots/{:04}.png'.format(iteration))
-			iteration += 1
-
-		while not preview.done:
-			clock.tick()
-
-			preview.switch_to()
-			preview.dispatch_events()
-			preview.dispatch_event('on_draw')
-			preview.flip()
-			screenshot()
-			preview.step()
-		screenshot()
+	if 'cpu' in sys.argv[1:]:
+		propagator = propagate.CPUPropagator(model)
 	else:
-		app.run()
+		propagator = propagate.CL1Propagator(model, ctx)
+
+	if 'silent' in sys.argv[1:]:
+		from timeit import default_timer
+
+		grid = model.build_grid(queue)
+		start = default_timer()
+		while True:
+			status = observer.observe(grid)
+			if status[0] == 'continue':
+				index, collapsed = status[1:]
+				propagator.propagate(grid, index, collapsed)
+			else:
+				break
+		print('{} after {}s'.format(status[0], default_timer() - start))
+	else:
+		from pyglet import app, image, clock
+		preview = preview.PreviewWindow(model, queue, observer, propagator)
+		iteration = 0
+		if 'render' in sys.argv[1:]:
+			def screenshot():
+				global iteration
+				image.get_buffer_manager().get_color_buffer().save('shots/{:04}.png'.format(iteration))
+				iteration += 1
+
+			while not preview.done:
+				clock.tick()
+
+				preview.switch_to()
+				preview.dispatch_events()
+				preview.dispatch_event('on_draw')
+				preview.flip()
+				screenshot()
+				preview.step()
+			screenshot()
+		else:
+			app.run()
