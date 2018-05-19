@@ -3,44 +3,39 @@ import pyopencl.array
 import pyopencl.cltypes
 import numpy as np
 
-def xy2i(x, y):
-	x = x % 8
-	y = y % 8
-#	return y * 8 + x
-	return x * 8 + y
-
-def i2xy(i):
-	x = i // 8
-#	return (i % 8), i // 8
-	return i //8, (i % 8)
-
 class BasePropagator(object):
 	def __init__(self, model):
 		self.model = model
 
-		self.neighbours = np.zeros(self.model.world_shape + (self.model.adjacent,), dtype=cl.cltypes.uint)
-		for pos, _ in np.ndenumerate(self.neighbours[...,0]):
-			self.neighbours[pos] = [np.ravel_multi_index(neighbour, self.model.world_shape) for neighbour in self.model.get_neighbours(pos)]
+	def get_neighbours(self):
+		neighbours = np.zeros(self.model.world_shape + (self.model.adjacent,), dtype=cl.cltypes.uint)
+		for pos, _ in np.ndenumerate(neighbours[...,0]):
+			neighbours[pos] = [np.ravel_multi_index(neighbour, self.model.world_shape) for neighbour in self.model.get_neighbours(pos)]
+		return neighbours
 
-		# np.fromfunction(
-		# 	np.vectorize(lambda pos: [ self.model.get_neighbours(pos) ], ignore={3}),
-		# 	self.model.world_shape + (self.model.adjacent,),
-		# 	dtype=int
-		# ).astype(cl.cltypes.uint)
+	def get_allows(self, flipped=False):
+		def add_allows(i, direction):
+			ret = np.uint64(0)
+			tile = self.model.tiles[i]
+			for other in self.model.tiles:
+				if tile.compatible(other, direction):
+					ret |= other.flag
+			return ret
 
-		self.allows = np.fromfunction(
-			np.vectorize(self.get_allows),
+		if flipped:
+			def add_allows(i, direction):
+				ret = np.uint64(0)
+				tile = self.model.tiles[i]
+				for other in self.model.tiles:
+					if other.compatible(tile, direction):
+						ret |= other.flag
+				return ret
+
+		return np.fromfunction(
+			np.vectorize(add_allows),
 			(len(self.model.tiles), self.model.adjacent),
 			dtype=int
 		).astype(cl.cltypes.ulong)
-
-	def get_allows(self, i, direction):
-		ret = np.uint64(0)
-		tile = self.model.tiles[i]
-		for other in self.model.tiles:
-			if tile.compatible(other, direction):
-				ret |= other.flag
-		return ret
 
 	def get_config(self):
 		adj = self.model.adjacent
@@ -52,7 +47,7 @@ class BasePropagator(object):
 			'adj_uint': 'uint' + str(adjacent_pow),
 			'adj_ulong': 'ulong' + str(adjacent_pow),
 			'states': len(self.model.tiles),
-			'forNeighbour': lambda tpl, join='\n': join.join([tpl.format(i=i, o=(i + adj//2)%adj) for i in range(adj)]),
+			'forNeighbour': lambda tpl, join='\n': join.join([tpl.format(i=i) for i in range(adj)]),
 		}
 
 		config['preamble'] = '''
@@ -97,8 +92,8 @@ class CL2Propagator(BasePropagator):
 		self.ctx = ctx
 
 		alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-		self.allows_buf = cl.array.to_device(queue, self.allows, alloc)
-		self.neighbours_buf = cl.array.to_device(queue, self.neighbours, alloc)
+		self.allows_buf = cl.array.to_device(queue, self.get_allows(), alloc)
+		self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
 
 		config = self.get_config()
 		self.program = cl.Program(ctx, config['preamble'] + '''
@@ -149,8 +144,8 @@ class CL1Propagator(BasePropagator):
 
 		queue = cl.CommandQueue(ctx)
 		alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-		self.allows_buf = cl.array.to_device(queue, self.allows, alloc)
-		self.neighbours_buf = cl.array.to_device(queue, self.neighbours, alloc)
+		self.allows_buf = cl.array.to_device(queue, self.get_allows(True), alloc)
+		self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
 
 		config = self.get_config()
 		fN = config['forNeighbour']
@@ -176,7 +171,7 @@ class CL1Propagator(BasePropagator):
 					ulong flag = 1 << tile;
 					ADJULONG tile_allows = allows[tile];
 					''' + fN('''
-					if (flag & grid_{i}) mask_{i} |= tile_allows.s{o};
+					if (flag & grid_{i}) mask_{i} |= tile_allows.s{i};
 					''') + '''
 				}
 
@@ -191,6 +186,9 @@ class CL1Propagator(BasePropagator):
 		grid[np.unravel_index(index, self.model.world_shape)] = collapsed
 		turn, changes = 0, 1
 		while changes > 0:
-			changes = self.update_grid(grid, self.allows_buf, self.neighbours_buf).get()
+			print('grid: {}, allows: {}, neigh: {}'.format(grid.size, self.allows_buf.size, self.neighbours_buf.size))
+			print('grid: {}, allows: {}, neigh: {}'.format(grid.shape, self.allows_buf.shape, self.neighbours_buf.shape))
+			res = self.update_grid(grid, self.allows_buf, self.neighbours_buf)
+			changes = res.get()
 			print('propagation turn {}, {} changes'.format(turn, changes))
 			turn += 1

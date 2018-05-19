@@ -18,13 +18,14 @@ class PreviewWindow(pyglet.window.Window):
 		tile.anchor_x = 32
 		tile.anchor_y = 32
 		self.sprite = pyglet.sprite.Sprite(img=tile, x=0, y=0)
-		self.colors = ( (255, 0, 0), (0, 255, 0), (0, 0, 255) )
+		self.colors = ( (0, 0, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255) )
+		self.rotations = [0, 90, 180, 270]
 
 	def draw_tiles(self, pos, bits):
 		if bits == 0:
 			return
 
-		x, y = pos
+		x, y = pos[-2:]
 		self.sprite.x = x * 64 + 32
 		self.sprite.y = 512 - y * 64 - 32
 
@@ -33,10 +34,10 @@ class PreviewWindow(pyglet.window.Window):
 
 		for tile in tiles:
 			for direction, adj in enumerate(tile.adj):
-				if adj < 1:
+				if adj < 1 or self.rotations[direction] == None:
 					continue
 				self.sprite.color = self.colors[adj]
-				self.sprite.rotation = direction * 90
+				self.sprite.rotation = self.rotations[direction] 
 				self.sprite.draw()
 
 		if self.debug:
@@ -45,10 +46,8 @@ class PreviewWindow(pyglet.window.Window):
 	def on_draw(self):
 		self.clear()
 
-		batch = pyglet.graphics.Batch()
 		for pos, bits in np.ndenumerate(self.grid_array):
 			self.draw_tiles(pos, bits)
-		batch.draw()
 
 	def step(self):
 		status = self.observer.observe(self.grid)
@@ -72,3 +71,26 @@ class PreviewWindow(pyglet.window.Window):
 			self.run()
 		elif symbol == key.D:
 			self.debug = not self.debug
+
+class PreviewWindow3d(PreviewWindow):
+	def __init__(self, *args):
+		super().__init__(*args)
+		self.rotations = [0, 90, None, 180, 270, None]
+		self.slice = 0
+
+	def on_draw(self):
+		self.clear()
+
+		for pos, bits in np.ndenumerate(self.grid_array[self.slice]):
+			self.draw_tiles(pos, bits)
+
+	def on_key_press(self, symbol, modifiers):
+		if symbol == key.UP:
+			self.slice += 1
+		elif symbol == key.DOWN:
+			self.slice += 1
+		else:
+			super().on_key_press(symbol, modifiers)
+			return
+		self.slice = self.slice % len(self.grid_array)
+		print(self.slice)

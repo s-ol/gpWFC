@@ -7,24 +7,28 @@ import observe
 import propagate
 import preview
 
-model = model.Model2d((8, 8,))
-
-adjs = [0, 1, 2]
-for adj in np.stack(np.meshgrid(adjs, adjs, adjs, adjs), -1).reshape(-1, 4):
-	bins = np.bincount(adj, minlength=3)
-	if bins[0] % 2 == 1:
-		continue
-	if bins[1] % 2 == 1:
-		continue
-	# if bins[2] % 2 == 1:
-	# 	continue
-
-	model.add(adj)
-
-print('{} tiles:'.format(len(model.tiles)))
-
 if __name__ == '__main__':
 	import sys
+
+	if '3d' in sys.argv[1:]:
+		model = model.Model3d((4, 4, 4))
+		model.add((2, 2, 2, 2, 2, 2)) # all blue
+		model.add((1, 1, 2, 1, 1, 2)) # blue only above and below
+	else:
+		model = model.Model2d((8, 8))
+		adjs = [0, 1, 2]
+		for adj in np.stack(np.meshgrid(adjs, adjs, adjs, adjs), -1).reshape(-1, 4):
+			bins = np.bincount(adj, minlength=3)
+			if bins[0] % 2 == 1:
+				continue
+			if bins[1] % 2 == 1:
+				continue
+			# if bins[2] % 2 == 1:
+			# 	continue
+			model.add(adj)
+
+	print('{} tiles:'.format(len(model.tiles)))
+
 
 	platform = None
 	platforms =  cl.get_platforms()
@@ -62,7 +66,10 @@ if __name__ == '__main__':
 		print('{} after {}s'.format(status[0], default_timer() - start))
 	else:
 		from pyglet import app, image, clock
-		preview = preview.PreviewWindow(model, queue, observer, propagator)
+		if '3d' in sys.argv[1:]:
+			preview = preview.PreviewWindow3d(model, queue, observer, propagator)
+		else:
+			preview = preview.PreviewWindow(model, queue, observer, propagator)
 		iteration = 0
 		if 'render' in sys.argv[1:]:
 			def screenshot():

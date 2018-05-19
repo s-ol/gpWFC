@@ -11,8 +11,8 @@ class Tile(object):
 		self.flag = np.uint64(1 << self.index)
 
 	def compatible(self, other, direction):
-		# @TODO 3d
-		return self.adj[direction] == other.adj[(direction+2) % 4]
+		l = len(self.adj)
+		return self.adj[direction] == other.adj[(direction+l//2) % l]
 
 class Model(object):
 	def __init__(self, world_shape):
