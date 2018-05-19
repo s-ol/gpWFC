@@ -72,6 +72,32 @@ class PreviewWindow(pyglet.window.Window):
 		elif symbol == key.D:
 			self.debug = not self.debug
 
+class SpritePreviewWindow(PreviewWindow):
+	def __init__(self, model, queue, observer, propagator, tile_size):
+		super().__init__(model, queue, observer, propagator)
+		self.tile_size = tile_size
+
+	def draw_tiles(self, pos, bits):
+		if bits == 0:
+			return
+
+		x, y = pos[-2:]
+		self.sprite.x = x * self.tile_size + self.tile_size/2
+		self.sprite.y = 512 - y * self.tile_size - self.tile_size/2
+
+		tiles = self.model.get_allowed_tiles(bits)
+		self.sprite.opacity = 255 / len(tiles)
+
+		for tile in tiles:
+			tile.image.anchor_x = self.tile_size/2
+			tile.image.anchor_y = self.tile_size/2
+			self.sprite.image = tile.image
+			self.sprite.rotation = tile.rotation * 90
+			self.sprite.draw()
+
+		if self.debug:
+			pyglet.text.Label(str(bits), x=self.sprite.x, y=self.sprite.y).draw()
+
 class PreviewWindow3d(PreviewWindow):
 	def __init__(self, *args):
 		super().__init__(*args)

@@ -179,16 +179,13 @@ class CL1Propagator(BasePropagator):
 				grid[i] = new_bits;
 				return old_bits != new_bits;
 			}
-                        '''
+			'''
 		)
 
 	def propagate(self, grid, index, collapsed):
 		grid[np.unravel_index(index, self.model.world_shape)] = collapsed
 		turn, changes = 0, 1
 		while changes > 0:
-			print('grid: {}, allows: {}, neigh: {}'.format(grid.size, self.allows_buf.size, self.neighbours_buf.size))
-			print('grid: {}, allows: {}, neigh: {}'.format(grid.shape, self.allows_buf.shape, self.neighbours_buf.shape))
-			res = self.update_grid(grid, self.allows_buf, self.neighbours_buf)
-			changes = res.get()
-			print('propagation turn {}, {} changes'.format(turn, changes))
+			changes = self.update_grid(grid, self.allows_buf, self.neighbours_buf).get()
 			turn += 1
+		print('propagated in {} turns'.format(turn))

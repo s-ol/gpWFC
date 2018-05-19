@@ -1,12 +1,19 @@
 import pyopencl as cl
 import pyopencl.cltypes
 import numpy as np
+import pyglet
 
 class Tile(object):
 	nextIndex = 0
-	def __init__(self, adj, weight, index):
+	def __init__(self, adj, weight=1):
 		self.adj = adj
 		self.weight = weight
+
+	def rotated(self, rot):
+		adj = self.adj[-rot:] + self.adj[:-rot]
+		return Tile(adj, self.weight)
+
+	def register(self, index):
 		self.index = index
 		self.flag = np.uint64(1 << self.index)
 
@@ -14,13 +21,32 @@ class Tile(object):
 		l = len(self.adj)
 		return self.adj[direction] == other.adj[(direction+l//2) % l]
 
+class SpriteTile(Tile):
+	def __init__(self, image, adj, weight=1, rotation=0):
+		super().__init__(adj, weight)
+		if not isinstance(image, pyglet.image.AbstractImage):
+			image = pyglet.resource.image(image)
+		self.image = image
+		self.rotation = rotation
+
+	def rotated(self, rotation):
+		adj = self.adj[-rotation:] + self.adj[:-rotation]
+		return SpriteTile(self.image, adj, weight=self.weight, rotation=rotation)
+
 class Model(object):
 	def __init__(self, world_shape):
 		self.tiles = []
 		self.world_shape = world_shape
 
-	def add(self, adj, weight=1):
-		self.tiles.append(Tile(adj, weight, len(self.tiles)))
+	def add(self, tile):
+		tile.register(len(self.tiles))
+		self.tiles.append(tile)
+
+	def add_rotations(self, orig, rotations):
+		for rot in rotations:
+			tile = orig.rotated(rot)
+			tile.register(len(self.tiles))
+			self.tiles.append(tile)
 
 	def build_grid(self, queue):
 		all_tiles = sum(tile.flag for tile in self.tiles)

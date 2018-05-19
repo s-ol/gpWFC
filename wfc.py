@@ -2,7 +2,7 @@ import pyopencl as cl
 import pyopencl.array
 import numpy as np
 
-import model
+from model import Model2d, Model3d, Tile
 import observe
 import propagate
 import preview
@@ -11,11 +11,11 @@ if __name__ == '__main__':
 	import sys
 
 	if '3d' in sys.argv[1:]:
-		model = model.Model3d((4, 4, 4))
+		model = Model3d((4, 4, 4))
 		model.add((2, 2, 2, 2, 2, 2)) # all blue
 		model.add((1, 1, 2, 1, 1, 2)) # blue only above and below
 	else:
-		model = model.Model2d((8, 8))
+		model = Model2d((8, 8))
 		adjs = [0, 1, 2]
 		for adj in np.stack(np.meshgrid(adjs, adjs, adjs, adjs), -1).reshape(-1, 4):
 			bins = np.bincount(adj, minlength=3)
@@ -25,7 +25,7 @@ if __name__ == '__main__':
 				continue
 			# if bins[2] % 2 == 1:
 			# 	continue
-			model.add(adj)
+			model.add(Tile(adj))
 
 	print('{} tiles:'.format(len(model.tiles)))
 
@@ -70,8 +70,8 @@ if __name__ == '__main__':
 			preview = preview.PreviewWindow3d(model, queue, observer, propagator)
 		else:
 			preview = preview.PreviewWindow(model, queue, observer, propagator)
-		iteration = 0
 		if 'render' in sys.argv[1:]:
+			iteration = 0
 			def screenshot():
 				global iteration
 				image.get_buffer_manager().get_color_buffer().save('shots/{:04}.png'.format(iteration))
