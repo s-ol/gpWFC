@@ -48,10 +48,10 @@ class Model(object):
 			tile.register(len(self.tiles))
 			self.tiles.append(tile)
 
-	def build_grid(self, queue):
+	def build_grid(self):
 		all_tiles = sum(tile.flag for tile in self.tiles)
 		print('filling grid with {}'.format(all_tiles))
-		return cl.array.to_device(queue, np.full(self.world_shape, all_tiles, dtype=cl.cltypes.ulong))
+		return np.full(self.world_shape, all_tiles, dtype=cl.cltypes.ulong)
 
 	def get_allowed_tiles(self, bits):
 		return [tile for tile in self.tiles if tile.flag & bits]

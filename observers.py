@@ -6,14 +6,15 @@ import pyopencl.reduction
 import numpy as np
 import numpy.random
 
-class Observer(object):
-	def __init__(self, ctx, queue, model):
+class CLObserver(object):
+	def __init__(self, model, ctx=None):
 		self.model = model
-		self.rnd = pyopencl.clrandom.PhiloxGenerator(ctx)
-		self.bias = cl.array.to_device(queue, np.zeros(self.model.world_shape, dtype=cl.cltypes.float))
+		with cl.CommandQueue(ctx) as queue:
+			self.rnd = pyopencl.clrandom.PhiloxGenerator(ctx)
+			self.bias = cl.array.to_device(queue, np.zeros(self.model.world_shape, dtype=cl.cltypes.float))
 
-		alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-		self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float), alloc)
+			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+			self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float), alloc)
 
 		min_collector = np.dtype([
 			('entropy', cl.cltypes.float),

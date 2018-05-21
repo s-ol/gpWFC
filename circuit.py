@@ -1,9 +1,9 @@
-from model import Model2d, SpriteTile
-from observe import Observer
-from propagate import CL1Propagator
-from preview import SpritePreviewWindow
+from models import Model2d, SpriteTile
+from observers import CLObserver
+from propagators import CL1Propagator
+from previews import SpritePreviewWindow
+from runners import BacktrackingRunner
 from pyglet import app, image, clock
-from pyopencl import create_some_context, CommandQueue
 import sys
 
 model = Model2d((16, 16))
@@ -43,31 +43,10 @@ model.add_rotations(SpriteTile('tiles/dskew.png', (1, 1, 1, 1), weight=2), [0, 1
 
 model.add(SpriteTile('tiles/substrate.png', (0, 0, 0, 0), weight=2))
 
-ctx = create_some_context()
-device = ctx.devices[0]
-queue = CommandQueue(ctx)
-observer = Observer(ctx, queue, model)
-propagator = CL1Propagator(model, ctx)
-preview = SpritePreviewWindow(model, queue, observer, propagator, 14)
+runner = BacktrackingRunner(model, Propagator=CL1Propagator, Observer=CLObserver)
+preview = SpritePreviewWindow(runner, 14)
 
 if 'render' in sys.argv[1:]:
-	iteration = 0
-	def screenshot():
-		global iteration
-		image.get_buffer_manager().get_color_buffer().save('shots/{:04}.png'.format(iteration))
-		iteration += 1
-
-	while not preview.done:
-		clock.tick()
-
-		preview.switch_to()
-		preview.dispatch_events()
-		preview.dispatch_event('on_draw')
-		preview.flip()
-		screenshot()
-		preview.step()
-	preview.dispatch_event('on_draw')
-	preview.flip()
-	screenshot()
+	preview.render()
 else:
-	app.run()
+	preview.launch()

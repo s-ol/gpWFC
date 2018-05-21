@@ -1,6 +1,8 @@
 import pyopencl as cl
 import pyopencl.array
 import pyopencl.cltypes
+import pyopencl.tools
+import pyopencl.reduction
 import numpy as np
 
 class BasePropagator(object):
@@ -86,14 +88,15 @@ class CPUPropagator(BasePropagator):
 		self.reduce_to_allowed(np.unravel_index(index, self.model.world_shape), np.uint64(collapsed), grid)
 
 class CL2Propagator(BasePropagator):
-	def __init__(self, model, ctx):
+	def __init__(self, model, ctx=None):
 		super().__init__(model)
 
 		self.ctx = ctx
 
-		alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-		self.allows_buf = cl.array.to_device(queue, self.get_allows(), alloc)
-		self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
+		with cl.CommandQueue(ctx) as queue:
+			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+			self.allows_buf = cl.array.to_device(queue, self.get_allows(), alloc)
+			self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
 
 		config = self.get_config()
 		self.program = cl.Program(ctx, config['preamble'] + '''
@@ -139,13 +142,13 @@ class CL2Propagator(BasePropagator):
 			)
 
 class CL1Propagator(BasePropagator):
-	def __init__(self, model, ctx):
+	def __init__(self, model, ctx=None):
 		super().__init__(model)
 
-		queue = cl.CommandQueue(ctx)
-		alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-		self.allows_buf = cl.array.to_device(queue, self.get_allows(True), alloc)
-		self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
+		with cl.CommandQueue(ctx) as queue:
+			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+			self.allows_buf = cl.array.to_device(queue, self.get_allows(True), alloc)
+			self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
 
 		config = self.get_config()
 		fN = config['forNeighbour']
