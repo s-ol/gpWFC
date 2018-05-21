@@ -4,8 +4,8 @@ import numpy as np
 from pyglet.window import key
 
 class PreviewWindow(pyglet.window.Window):
-	def __init__(self, model, queue, observer, propagator):
-		super().__init__(width=512, height=512)
+	def __init__(self, model, queue, observer, propagator, width=512, height=512):
+		super().__init__(width=width, height=height)
 		self.model = model
 		self.observer = observer
 		self.propagator = propagator
@@ -27,7 +27,7 @@ class PreviewWindow(pyglet.window.Window):
 
 		x, y = pos[-2:]
 		self.sprite.x = x * 64 + 32
-		self.sprite.y = 512 - y * 64 - 32
+		self.sprite.y = self.height - y * 64 - 32
 
 		tiles = self.model.get_allowed_tiles(bits)
 		self.sprite.opacity = 255 / len(tiles)
@@ -74,7 +74,9 @@ class PreviewWindow(pyglet.window.Window):
 
 class SpritePreviewWindow(PreviewWindow):
 	def __init__(self, model, queue, observer, propagator, tile_size):
-		super().__init__(model, queue, observer, propagator)
+		width = model.world_shape[0] * tile_size
+		height = model.world_shape[1] * tile_size
+		super().__init__(model, queue, observer, propagator, width=width, height=height)
 		self.tile_size = tile_size
 
 	def draw_tiles(self, pos, bits):
@@ -83,7 +85,7 @@ class SpritePreviewWindow(PreviewWindow):
 
 		x, y = pos[-2:]
 		self.sprite.x = x * self.tile_size + self.tile_size/2
-		self.sprite.y = 512 - y * self.tile_size - self.tile_size/2
+		self.sprite.y = self.height - y * self.tile_size - self.tile_size/2
 
 		tiles = self.model.get_allowed_tiles(bits)
 		self.sprite.opacity = 255 / len(tiles)

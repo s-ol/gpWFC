@@ -86,6 +86,8 @@ if __name__ == '__main__':
 				preview.flip()
 				screenshot()
 				preview.step()
+			preview.dispatch_event('on_draw')
+			preview.flip()
 			screenshot()
 		else:
 			app.run()
