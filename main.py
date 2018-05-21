@@ -10,12 +10,9 @@ if __name__ == '__main__':
 	import sys
 
 	if '3d' in sys.argv[1:]:
-		model = Model3d((4, 4, 4))
-		model.add(Tile((1, 1, 0, 1, 1, 0))) # all green
-		model.add(Tile((2, 2, 0, 1, 1, 0))) # all blue
-		# model.add(Tile((2, 2, 0, 2, 2, 2))) # all blue
-		# model.add(Tile((2, 2, 1, 2, 2, 0))) # all blue
-		# model.add(Tile((1, 1, 2, 1, 1, 1))) # blue only above and below
+		model = Model3d((4, 4, 2))
+		model.add(Tile((0, 1, 1, 0, 1, 0))) # all green
+		model.add(Tile((2, 0, 0, 2, 0, 1))) # all green
 	else:
 		model = Model2d((8, 8))
 		adjs = [0, 1, 2]

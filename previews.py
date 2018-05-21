@@ -47,6 +47,8 @@ class BasePreview(Window):
 		run()
 
 class PreviewWindow(BasePreview):
+	colors = ( (0, 0, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255) )
+	rotations = [0, 90, 180, 270]
 	def __init__(self, runner):
 		super().__init__(runner, width=512, height=512)
 
@@ -54,8 +56,6 @@ class PreviewWindow(BasePreview):
 		tile.anchor_x = 32
 		tile.anchor_y = 32
 		self.sprite = Sprite(img=tile, x=0, y=0)
-		self.colors = ( (0, 0, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255) )
-		self.rotations = [0, 90, 180, 270]
 
 	def draw_tiles(self, pos, bits):
 		if bits == 0:
@@ -80,15 +80,16 @@ class PreviewWindow(BasePreview):
 			Label(str(bits), x=self.sprite.x, y=self.sprite.y).draw()
 
 class PreviewWindow3d(PreviewWindow):
+	rotations = [0, 90, None, 180, 270, None]
+
 	def __init__(self, *args):
 		super().__init__(*args)
-		self.rotations = [0, 90, None, 180, 270, None]
 		self.slice = 0
 
 	def on_draw(self):
 		self.clear()
 
-		for pos, bits in ndenumerate(self.runner.grid_array[self.slice]):
+		for pos, bits in ndenumerate(self.runner.grid_array[...,self.slice]):
 			self.draw_tiles(pos, bits)
 
 	def on_key_press(self, symbol, modifiers):
@@ -99,7 +100,7 @@ class PreviewWindow3d(PreviewWindow):
 		else:
 			super().on_key_press(symbol, modifiers)
 			return
-		self.slice = self.slice % len(self.runner.grid_array)
+		self.slice = self.slice % self.runner.model.world_shape[-1]
 		print(self.slice)
 
 class SpritePreviewWindow(BasePreview):

@@ -9,14 +9,23 @@ class BasePropagator(object):
 	def __init__(self, model):
 		self.model = model
 
-	def get_neighbours(self):
-		neighbours = np.zeros(self.model.world_shape + (self.model.adjacent,), dtype=cl.cltypes.uint)
+	def get_neighbours(self, pad_to=None):
+		if not pad_to:
+			pad_to = self.model.adjacent
+		diff = pad_to - self.model.adjacent
+
+		neighbours = np.zeros(self.model.world_shape + (pad_to,), dtype=cl.cltypes.uint)
 		for pos, _ in np.ndenumerate(neighbours[...,0]):
-			neighbours[pos] = [np.ravel_multi_index(neighbour, self.model.world_shape) for neighbour in self.model.get_neighbours(pos)]
+			neighbours[pos] = [np.ravel_multi_index(neighbour, self.model.world_shape) for neighbour in self.model.get_neighbours(pos)] + [0] * diff
 		return neighbours
 
-	def get_allows(self, flipped=False):
+	def get_allows(self, pad_to=None, flipped=False):
+		if not pad_to:
+			pad_to = self.model.adjacent
+
 		def add_allows(i, direction):
+			if direction >= self.model.adjacent:
+				return 0
 			ret = np.uint64(0)
 			tile = self.model.tiles[i]
 			for other in self.model.tiles:
@@ -26,6 +35,9 @@ class BasePropagator(object):
 
 		if flipped:
 			def add_allows(i, direction):
+				if direction >= self.model.adjacent:
+					return 0
+
 				ret = np.uint64(0)
 				tile = self.model.tiles[i]
 				for other in self.model.tiles:
@@ -35,7 +47,7 @@ class BasePropagator(object):
 
 		return np.fromfunction(
 			np.vectorize(add_allows),
-			(len(self.model.tiles), self.model.adjacent),
+			(len(self.model.tiles), pad_to),
 			dtype=int
 		).astype(cl.cltypes.ulong)
 
@@ -46,6 +58,7 @@ class BasePropagator(object):
 
 		config = {
 			'adj': adj,
+			'adj_pow': adjacent_pow,
 			'adj_uint': 'uint' + str(adjacent_pow),
 			'adj_ulong': 'ulong' + str(adjacent_pow),
 			'states': len(self.model.tiles),
@@ -62,6 +75,10 @@ class BasePropagator(object):
 		return config
 
 class CPUPropagator(BasePropagator):
+	def __init__(self, model, ctx=None):
+		super().__init__(model)
+		self.allows = self.get_allows()
+
 	def reduce_to_allowed(self, i, allowmap, grid):
 		old = grid[i]
 		new = old & allowmap
@@ -145,12 +162,13 @@ class CL1Propagator(BasePropagator):
 	def __init__(self, model, ctx=None):
 		super().__init__(model)
 
+		config = self.get_config()
+
 		with cl.CommandQueue(ctx) as queue:
 			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-			self.allows_buf = cl.array.to_device(queue, self.get_allows(True), alloc)
-			self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
+			self.allows_buf = cl.array.to_device(queue, self.get_allows(pad_to=config['adj_pow'], flipped=True), alloc)
+			self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(pad_to=config['adj_pow']), alloc)
 
-		config = self.get_config()
 		fN = config['forNeighbour']
 
 		self.update_grid = cl.reduction.ReductionKernel(ctx,
