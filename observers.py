@@ -14,7 +14,8 @@ class CLObserver(object):
 			self.bias = cl.array.to_device(queue, np.zeros(self.model.world_shape, dtype=cl.cltypes.float))
 
 			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
-			self.weights = cl.array.to_device(queue, np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float), alloc)
+			self.weights_array = np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float)
+			self.weights = cl.array.to_device(queue, self.weights_array, alloc)
 
 		min_collector = np.dtype([
 			('entropy', cl.cltypes.float),
@@ -75,7 +76,8 @@ class CLObserver(object):
 		)
 
 	def collapse(self, bits):
-		p = self.weights.get()
+		p = self.weights_array.copy()
+		bits = int(bits.get())
 		for i in range(len(p)):
 			p[i] *= not not bits & (1 << i)
 		p = p / np.sum(p)

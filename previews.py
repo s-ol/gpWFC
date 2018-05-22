@@ -33,8 +33,10 @@ class BasePreview(Window):
 
 	def render(self):
 		iteration = 0
-		self.dispatch_event('on_draw')
-		self.flip()
+		for i in range(2):
+			self.dispatch_events()
+			self.dispatch_event('on_draw')
+			self.flip()
 		self.screenshot('shots/{:04}.png'.format(iteration))
 		for i in runner.run():
 			self.dispatch_events()
