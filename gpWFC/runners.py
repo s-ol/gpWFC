@@ -1,20 +1,20 @@
-from pyopencl import create_some_context, CommandQueue
+from pyopencl import create_some_context, mem_flags, CommandQueue
 from pyopencl.array import to_device
 from .observers import CLObserver
 from .propagators import CL1Propagator
 
 class Runner(object):
-	def __init__(self, model, Observer=CLObserver, Propagator=CL1Propagator, ctx=None):
+	def __init__(self, model, Observer=CLObserver, Propagator=CL1Propagator, ctx=None, allocator=None):
 		if not ctx:
 			ctx = create_some_context()
 		self.model = model
 
 		self.grid_array = self.model.build_grid()
 		with CommandQueue(ctx) as queue:
-			self.grid = to_device(queue, self.grid_array)
+			self.grid = to_device(queue, self.grid_array, allocator=allocator)
+
 		self.observer = Observer(model, ctx=ctx)
 		self.propagator = Propagator(model, ctx=ctx)
-
 		self.candidate = self.observer.observe(self.grid)[1:]
 		self.done = False
 

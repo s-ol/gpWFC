@@ -3,7 +3,6 @@ import numpy as np
 from gpWFC.models import Model2d, Model3d, Tile
 from gpWFC.observers import CLObserver
 from gpWFC.propagators import CPUPropagator, CL1Propagator
-from gpWFC.previews import PreviewWindow, PreviewWindow3d
 from gpWFC.runners import BacktrackingRunner
 
 if __name__ == '__main__':
@@ -32,7 +31,12 @@ if __name__ == '__main__':
 	if 'cpu' in sys.argv[1:]:
 		Propagator = CPUPropagator
 
-	runner = BacktrackingRunner(model, Observer=CLObserver, Propagator=Propagator)
+	if 'glut' in sys.argv[1:]:
+		from gpWFC.glut import GLUTWindow
+		preview = GLUTWindow(model)
+		runner = preview.runner
+	else:
+		runner = BacktrackingRunner(model, Observer=CLObserver, Propagator=Propagator)
 
 	if 'silent' in sys.argv[1:]:
 		from timeit import default_timer
@@ -41,11 +45,14 @@ if __name__ == '__main__':
 		status = runner.finish()
 		print('{} after {}s'.format(status, default_timer() - start))
 	else:
-		Preview = PreviewWindow
-		if '3d' in sys.argv[1:]:
-			Preview = PreviewWindow3d
+		from gpWFC.previews import PreviewWindow, PreviewWindow3d
 
-		preview = Preview(runner)
+		if not preview:
+			if '3d' in sys.argv[1:]:
+				preview = PreviewWindow3d(runner)
+			else:
+				preview = PreviewWindow(runner)
+
 		if 'render' in sys.argv[1:]:
 			preview.render()
 		else:
