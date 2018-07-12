@@ -21,7 +21,7 @@ class CLObserver(object):
 			('entropy', cl.cltypes.float),
 			('index', cl.cltypes.uint),
 		])
-		min_collector, min_collector_def = cl.tools.match_dtype_to_c_struct(ctx.devices[0], 'min_collector', min_collector)
+		min_collector, min_collector_def = cl.tools.match_dtype_to_c_struct(ctx.devices[0], 'min_collector', min_collector, context=ctx)
 		min_collector = cl.tools.get_or_register_dtype('min_collector', min_collector)
 
 		preamble = '''
@@ -77,7 +77,6 @@ class CLObserver(object):
 
 	def collapse(self, bits):
 		p = self.weights_array.copy()
-		bits = int(bits.get())
 		for i in range(len(p)):
 			p[i] *= not not bits & (1 << i)
 		p = p / np.sum(p)
@@ -85,11 +84,16 @@ class CLObserver(object):
 		print('collapsing from {} to {}'.format(bits, tile.flag))
 		return tile.flag
 
-	def observe(self, grid):
+	def observe(self, grid, queue=None):
 		# random tie-breaking bias for each tile
-		self.rnd.fill_uniform(self.bias)
+		self.rnd.fill_uniform(self.bias, queue=queue)
 
-		tile = self.find_lowest_entropy(grid, self.bias, self.weights).get()
+		tile = self.find_lowest_entropy(
+			grid, self.bias, self.weights,
+			queue=queue, allocator=cl.tools.DeferredAllocator(queue.context)
+		).get(queue=queue)
+
+
 		entropy, index = tile['entropy'].item(), tile['index'].item()
 
 		t_index = np.unravel_index(index, self.model.world_shape)
@@ -101,4 +105,5 @@ class CLObserver(object):
 			return ('error',)
 
 		print('selected tile {} with entropy {}'.format(t_index, entropy))
-		return ('continue', index, self.collapse(grid[t_index]))
+		bits = int(grid[t_index].get(queue=queue))
+		return ('continue', index, self.collapse(bits))

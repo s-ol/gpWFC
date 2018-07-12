@@ -150,13 +150,12 @@ class CL2Propagator(BasePropagator):
 		}
 		''').build()
 
-	def propagate(self, grid, index, collapsed):
-		with cl.CommandQueue(self.ctx) as queue:
-			self.program.reduce_to_allowed(
-				queue, (1,), None,
-				index, collapsed,
-				grid, self.allows_buf, self.neighbours_buf
-			)
+	def propagate(self, grid, index, collapsed, queue):
+		self.program.reduce_to_allowed(
+			queue, (1,), None,
+			index, collapsed,
+			grid, self.allows_buf, self.neighbours_buf
+		)
 
 class CL1Propagator(BasePropagator):
 	def __init__(self, model, ctx=None):
@@ -203,10 +202,14 @@ class CL1Propagator(BasePropagator):
 			'''
 		)
 
-	def propagate(self, grid, index, collapsed):
-		grid[np.unravel_index(index, self.model.world_shape)] = collapsed
+	def propagate(self, grid, index, collapsed, queue=None):
+		print('prop')
+		# from pudb import set_trace; set_trace()
+		grid.setitem(np.unravel_index(index, self.model.world_shape), collapsed, queue=queue)
+		print('got')
 		turn, changes = 0, 1
 		while changes > 0:
-			changes = self.update_grid(grid, self.allows_buf, self.neighbours_buf).get()
+			print('update')
+			changes = self.update_grid(grid, self.allows_buf, self.neighbours_buf, queue=queue).get(queue=queue)
 			turn += 1
 		print('propagated in {} turns'.format(turn))

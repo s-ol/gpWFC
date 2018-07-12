@@ -31,6 +31,7 @@ if __name__ == '__main__':
 	if 'cpu' in sys.argv[1:]:
 		Propagator = CPUPropagator
 
+	preview = None
 	if 'glut' in sys.argv[1:]:
 		from gpWFC.glut import GLUTWindow
 		preview = GLUTWindow(model)
