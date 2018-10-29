@@ -13,7 +13,7 @@ class CLObserver(object):
 			self.rnd = pyopencl.clrandom.PhiloxGenerator(ctx)
 			self.bias = cl.array.to_device(queue, np.zeros(self.model.world_shape, dtype=cl.cltypes.float))
 
-			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+			alloc = cl.tools.ImmediateAllocator(queue, cl.mem_flags.READ_ONLY)
 			self.weights_array = np.array(list(tile.weight for tile in self.model.tiles), dtype=cl.cltypes.float)
 			self.weights = cl.array.to_device(queue, self.weights_array, alloc)
 

@@ -111,7 +111,7 @@ class CL2Propagator(BasePropagator):
 		self.ctx = ctx
 
 		with cl.CommandQueue(ctx) as queue:
-			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+			alloc = cl.tools.ImmediateAllocator(queue, cl.mem_flags.READ_ONLY)
 			self.allows_buf = cl.array.to_device(queue, self.get_allows(), alloc)
 			self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(), alloc)
 
@@ -165,7 +165,7 @@ class CL1Propagator(BasePropagator):
 		config = self.get_config()
 
 		with cl.CommandQueue(ctx) as queue:
-			alloc = cl.tools.ImmediateAllocator(queue, mem_flags=cl.mem_flags.READ_ONLY)
+			alloc = cl.tools.ImmediateAllocator(queue, cl.mem_flags.READ_ONLY)
 			self.allows_buf = cl.array.to_device(queue, self.get_allows(pad_to=config['adj_pow'], flipped=True), alloc)
 			self.neighbours_buf = cl.array.to_device(queue, self.get_neighbours(pad_to=config['adj_pow']), alloc)
 
