@@ -1,10 +1,10 @@
 import numpy as np
 
-from models import Model2d, Model3d, Tile
-from observers import CLObserver
-from propagators import CPUPropagator, CL1Propagator
-from previews import PreviewWindow, PreviewWindow3d
-from runners import BacktrackingRunner
+from gpWFC.models import Model2d, Model3d, Tile
+from gpWFC.observers import CLObserver
+from gpWFC.propagators import CPUPropagator, CL1Propagator
+from gpWFC.previews import PreviewWindow, PreviewWindow3d
+from gpWFC.runners import BacktrackingRunner
 
 if __name__ == '__main__':
 	import sys

@@ -1,6 +1,6 @@
-from models import Model2d, SpriteTile
-from previews import SpritePreviewWindow
-from runners import BacktrackingRunner
+from gpWFC.models import Model2d, SpriteTile
+from gpWFC.previews import SpritePreviewWindow
+from gpWFC.runners import BacktrackingRunner
 from pyglet import app, image, clock
 import sys
 

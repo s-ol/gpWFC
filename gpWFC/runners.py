@@ -1,7 +1,7 @@
 from pyopencl import create_some_context, CommandQueue
 from pyopencl.array import to_device
-from observers import CLObserver
-from propagators import CL1Propagator
+from .observers import CLObserver
+from .propagators import CL1Propagator
 
 class Runner(object):
 	def __init__(self, model, Observer=CLObserver, Propagator=CL1Propagator, ctx=None):
