@@ -4,6 +4,9 @@ gpu-collapse
 Implementation of the [Wave Function Collapse][WFC] procedural content generation algorithm,
 using [(py)OpenCL][pyopencl] for GPU acceleration.
 
+
+![circuit example](https://thumbs.gfycat.com/MinorFewBlackmamba-max-1mb.gif) ![simple  example](https://thumbs.gfycat.com/FinishedFlamboyantHylaeosaurus-max-1mb.gif)
+
 Getting Started
 ---------------
 
