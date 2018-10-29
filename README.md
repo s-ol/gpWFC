@@ -1,9 +1,8 @@
-gpu-collapse
-============
+gpWFC
+=====
 
 Implementation of the [Wave Function Collapse][WFC] procedural content generation algorithm,
 using [(py)OpenCL][pyopencl] for GPU acceleration.
-
 
 ![circuit example](https://thumbs.gfycat.com/MinorFewBlackmamba-max-1mb.gif) ![simple  example](https://thumbs.gfycat.com/FinishedFlamboyantHylaeosaurus-max-1mb.gif)
 
@@ -93,5 +92,19 @@ You can find a straightforward example of the basic setup steps in `circuit.py`,
 - instantiate a Preview and pass it the Runner
 - launch the Preview
 
+GPU-only rendering
+------------------
+
+There is a terribly broken `glsl-render` branch that tries to not ever get the buffer back to CPU memory during propagation,
+while still rendering the world in a GLSL shader.
+Unfortunately I could never get it to work properly with pyOpenCL to date, and due to some other constraints
+I also cannot test or bring the current version back to the best state it was in,
+so it will remain in a messy test state for now.
+
+If anyone is brave enough to touch it though, when working, it should give some incredible performance gains as the rendering
+and memory transfer / gpu blocking are by far the biggest slow-downs at the moment.
+There is also some hope since a new version of pyOpenCL is [apparently on the way][opencl-fix].
+
 [WFC]: https://github.com/mxgmn/WaveFunctionCollapse
 [pyopencl]: https://documen.tician.de/pyopencl
+[opencl-fix]: https://github.com/inducer/pyopencl/issues/235#issuecomment-431644685
