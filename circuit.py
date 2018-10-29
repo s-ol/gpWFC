@@ -1,6 +1,4 @@
 from models import Model2d, SpriteTile
-from observers import CLObserver
-from propagators import CL1Propagator
 from previews import SpritePreviewWindow
 from runners import BacktrackingRunner
 from pyglet import app, image, clock
@@ -43,7 +41,7 @@ model.add_rotations(SpriteTile('tiles/dskew.png', (1, 1, 1, 1), weight=2), [0, 1
 
 model.add(SpriteTile('tiles/substrate.png', (0, 0, 0, 0), weight=2))
 
-runner = BacktrackingRunner(model, Propagator=CL1Propagator, Observer=CLObserver)
+runner = BacktrackingRunner(model)
 preview = SpritePreviewWindow(runner, 14)
 
 if 'render' in sys.argv[1:]:

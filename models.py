@@ -4,7 +4,6 @@ import numpy as np
 import pyglet
 
 class Tile(object):
-	nextIndex = 0
 	def __init__(self, adj, weight=1):
 		self.adj = adj
 		self.weight = weight
